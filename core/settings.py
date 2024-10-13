@@ -41,9 +41,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'main_app',  # Your main application
     'rest_framework',  # Django REST Framework
+    'channels',  # Add Channels for WebSockets
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Must be at the top
+    'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -71,9 +75,12 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'core.wsgi.application'
+# Add ASGI support for Channels
+ASGI_APPLICATION = 'core.asgi.application'
+CORS_ORIGIN_ALLOW_ALL = True
 
-# Database configuration using environment variables
+
+# Database configuration using environment variables (PostgreSQL)
 tmpPostgres = urlparse(getenv("DATABASE_URL"))
 
 DATABASES = {
@@ -85,6 +92,16 @@ DATABASES = {
         'HOST': tmpPostgres.hostname,               # Extracts the hostname
         'PORT': tmpPostgres.port or '5432',         # Defaults to port 5432 if not specified
     }
+}
+
+# Channels Redis setup for WebSockets and real-time communication
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [("127.0.0.1", 6379)],  # Make sure Redis is running locally
+        },
+    },
 }
 
 # Password validation
