@@ -1,90 +1,157 @@
-# main_app/views.py
-from django.shortcuts import get_object_or_404
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from .models import CallRoom
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+import os
+from getstream import Stream
+from .models import User as UserModel  # Assuming you have a User model
 
-@api_view(['POST'])
-def create_room(request):
-    """
-    Creates a new room for the video call.
-    The room_name is passed in the POST request.
-    """
-    room_name = request.data.get('room_name')
+# Initialize Stream client with API keys from environment variables
+api_key = os.getenv('API_GETSTREAM_PUBLIC_KEY')
+secret = os.getenv('API_GETSTREAM_SECRET_KEY')
 
-    # Check if room name is provided
-    if not room_name:
-        return Response({"error": "Room name is required."}, status=400)
+if not api_key or not secret:
+    raise ValueError("Missing GetStream API Keys. Check your environment variables.")
 
-    # Check if room already exists or create a new room
-    room, created = CallRoom.objects.get_or_create(name=room_name)
+client = Stream(api_key, secret)
 
-    if created:
-        return Response({"message": "Room created successfully", "room_name": room.name}, status=201)
-    else:
-        return Response({"message": "Room already exists", "room_name": room.name}, status=200)
 
-@api_view(['POST'])
-def join_room(request):
-    """
-    Joins an existing room. The room_name is passed in the POST request.
-    """
-    room_name = request.data.get('room_name')
+@csrf_exempt
+def generate_user_token(request):
+    """Handles the creation of a user token using the Stream API and saves the user in the database."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request method"}, status=400)
 
-    # Check if room name is provided
-    if not room_name:
-        return Response({"error": "Room name is required."}, status=400)
+    try:
+        # Parse incoming JSON data
+        data = json.loads(request.body)
+        email = data.get("email")  # Expecting email as user ID
+        name = data.get("name", "Anonymous")  # Default to "Anonymous" if name is not provided
+        image = data.get("image", "")  # Default to empty string if image is not provided
 
-    # Get the room if it exists, otherwise return 404
-    room = get_object_or_404(CallRoom, name=room_name)
+        # Ensure that the email is provided
+        if not email:
+            return JsonResponse({"error": "Missing required field: email"}, status=400)
 
-    # Increment participant count (can be used to limit participants)
-    room.participants_count += 1
-    room.save()
+        # Create a unique user ID from email
+        user_id = email  # Using email as user ID
 
-    return Response({
-        "message": f"Joined room {room_name}",
-        "participants_count": room.participants_count
-    }, status=200)
+        # Create the user object for the Stream API
+        new_user = {
+            "id": user_id,
+            "role": "user",
+            "name": name,
+            "image": image,
+            "custom": {
+                "email": email,
+            },
+        }
 
-@api_view(['POST'])
-def end_call(request):
-    """
-    Ends the call for the participant and decrements the participant count.
-    If no participants are left, the room can be deleted.
-    """
-    room_name = request.data.get('room_name')
+        # Upsert the user in the Stream API
+        client.upsert_users([new_user])
 
-    # Check if room name is provided
-    if not room_name:
-        return Response({"error": "Room name is required."}, status=400)
+        # Set token validity (1 hour = 3600 seconds)
+        validity = 60 * 60
 
-    # Get the room
-    room = get_object_or_404(CallRoom, name=room_name)
+        # Generate the user token
+        token = client.create_token(user_id, {"expires_in": validity})
 
-    # Decrease participant count
-    room.participants_count -= 1
-    room.save()
+        # Save or update user in the PostgreSQL database
+        user, created = UserModel.objects.update_or_create(
+            email=email,
+            defaults={
+                'name': name,
+                'image': image,
+                'role': 'user',
+            },
+        )
 
-    # Optional: delete the room if no one is left
-    if room.participants_count <= 0:
-        room.delete()
-        return Response({"message": f"Room {room_name} deleted as no participants are left."}, status=204)
+        # Log the token creation process
+        print(f"User {email} created with token {token} and validity {validity}")
 
-    return Response({
-        "message": f"Left room {room_name}",
-        "participants_count": room.participants_count
-    }, status=200)
+        # Return token in JSON response
+        return JsonResponse({"token": token})
 
-@api_view(['GET'])
-def get_room_info(request, room_name):
-    """
-    Retrieves information about the room, such as the participant count.
-    """
-    room = get_object_or_404(CallRoom, name=room_name)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON data"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": f"An error occurred: {str(e)}"}, status=500)
 
-    return Response({
-        'room_name': room.name,
-        'participants_count': room.participants_count,
-        'created_at': room.created_at
-    }, status=200)
+
+# # views.py
+
+# from django.http import JsonResponse
+# from django.views.decorators.csrf import csrf_exempt
+# import json
+# import os
+# from getstream import Stream
+# from .models import User as UserModel  # Assuming you have a User model
+
+# # Initialize Stream client with API keys from environment variables
+# api_key = os.getenv('API_GETSTREAM_PUBLIC_KEY')
+# secret = os.getenv('API_GETSTREAM_SECRET_KEY')
+
+# if not api_key or not secret:
+#     raise ValueError("Missing GetStream API Keys. Check your environment variables.")
+
+# client = Stream(api_key, secret)
+
+
+# @csrf_exempt
+# def generate_user_token(request):
+#     """Handles the creation of a user token using the Stream API and saves the user in the database."""
+#     if request.method != "POST":
+#         return JsonResponse({"error": "Invalid request method"}, status=400)
+
+#     try:
+#         # Parse incoming JSON data
+#         data = json.loads(request.body)
+#         user_id = data.get("userId")
+#         name = data.get("name", "Anonymous")  # Default to "Anonymous" if name is not provided
+#         image = data.get("image", "")  # Default to empty string if image is not provided
+#         email = data.get("email", "")  # Default to empty string if email is not provided
+
+#         # Ensure that the user ID is provided
+#         if not user_id:
+#             return JsonResponse({"error": "Missing required field: userId"}, status=400)
+
+#         # Create the user object for the Stream API
+#         new_user = {
+#             "id": user_id,
+#             "role": "user",
+#             "name": name,
+#             "image": image,
+#             "custom": {
+#                 "email": email,
+#             },
+#         }
+
+#         # Upsert the user in the Stream API
+#         client.upsert_users([new_user])
+
+#         # Set token validity (1 hour = 3600 seconds)
+#         validity = 60 * 60
+
+#         # Generate the user token
+#         token = client.create_token(user_id, {"expires_in": validity})
+
+#         # Save or update user in the PostgreSQL database
+#         user, created = UserModel.objects.update_or_create(
+#             user_id=user_id,
+#             defaults={
+#                 'name': name,
+#                 'image': image,
+#                 'email': email,
+#                 'role': 'user',
+#             },
+#         )
+
+#         # Log the token creation process
+#         print(f"User {user_id} created with token {token} and validity {validity}")
+
+#         # Return token in JSON response
+#         return JsonResponse({"token": token})
+
+#     except json.JSONDecodeError:
+#         return JsonResponse({"error": "Invalid JSON data"}, status=400)
+#     except Exception as e:
+#         return JsonResponse({"error": f"An error occurred: {str(e)}"}, status=500)

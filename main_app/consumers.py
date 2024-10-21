@@ -12,6 +12,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
         # Add participant when connecting
         await self.add_participant(self.room_name)
         
+        # Join the room group
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
@@ -22,6 +23,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
         # Remove participant when disconnecting
         await self.remove_participant(self.room_name)
         
+        # Leave the room group
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
@@ -32,6 +34,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
         message_type = data.get('type')
 
         if message_type == 'offer':
+            # Broadcast WebRTC offer
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -41,6 +44,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
                 }
             )
         elif message_type == 'answer':
+            # Broadcast WebRTC answer
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -50,6 +54,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
                 }
             )
         elif message_type == 'candidate':
+            # Broadcast ICE candidate
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -63,6 +68,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
         offer = event['offer']
         sender = event['sender']
 
+        # Send the offer to all peers except the sender
         if self.channel_name != sender:
             await self.send(text_data=json.dumps({
                 'type': 'offer',
@@ -73,6 +79,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
         answer = event['answer']
         sender = event['sender']
 
+        # Send the answer to all peers except the sender
         if self.channel_name != sender:
             await self.send(text_data=json.dumps({
                 'type': 'answer',
@@ -83,6 +90,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
         candidate = event['candidate']
         sender = event['sender']
 
+        # Send the ICE candidate to all peers except the sender
         if self.channel_name != sender:
             await self.send(text_data=json.dumps({
                 'type': 'candidate',
@@ -100,6 +108,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
         """Decrease participants count when a user leaves the room."""
         room = CallRoom.objects.get(name=room_name)
         room.remove_participant()
+
 
 
 # import json
