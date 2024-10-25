@@ -1,4 +1,3 @@
-
 # Django settings for core project.
 from pathlib import Path
 from decouple import config
@@ -15,6 +14,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Stream API Configuration
 API_GETSTREAM_PUBLIC_KEY = os.getenv('API_GETSTREAM_PUBLIC_KEY')
 API_GETSTREAM_SECRET_KEY = os.getenv('API_GETSTREAM_SECRET_KEY')
+
+# Custom User Model
+AUTH_USER_MODEL = 'main_app.StreamUser'
 
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = config('SECRET_KEY', default='your-default-secret-key')
@@ -119,7 +121,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'EAT'
 USE_I18N = True
 USE_TZ = True
 
