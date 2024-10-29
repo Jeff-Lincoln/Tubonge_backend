@@ -17,9 +17,9 @@ API_GETSTREAM_PUBLIC_KEY = os.getenv('API_GETSTREAM_PUBLIC_KEY')
 API_GETSTREAM_SECRET_KEY = os.getenv('API_GETSTREAM_SECRET_KEY')
 
 # Quick-start development settings - unsuitable for production
-SECRET_KEY = config('SECRET_KEY', default='your-default-secret-key')
+SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(' ')
 
 # Application definition
 INSTALLED_APPS = [
@@ -115,3 +115,5 @@ STATIC_URL = 'static/'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
