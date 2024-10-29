@@ -1,8 +1,8 @@
 # main_app/routing.py
 from django.urls import re_path
-from .consumers import VideoCallConsumer
+from .views import create_user
 
-# Define WebSocket URL patterns
-websocket_urlpatterns = [
-    re_path(r'^ws/videocall/(?P<room_name>\w+)/$', VideoCallConsumer.as_asgi()),  # WebSocket URL with dynamic room_name
+urlpatterns = [
+    re_path(r'^api/create-user/$', create_user, name='create_user'),
+    # You can add more routes here as needed
 ]
